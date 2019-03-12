@@ -1,104 +1,42 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# celery beat schedule file
-celerybeat-schedule
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
+first_frame = None
+df = pd.DataFrame(columns=['Start','End'])
+times = []
+status_list = [None,None]
+video = cv2.VideoCapture(0)
+while True:
+    check,frame = video.read()
+    status = 0
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray,(21,21),0)
+    if first_frame is None:
+        first_frame = gray
+    
+    delta_frame = cv2.absdiff(gray,first_frame)
+    threshold = cv2.threshold(delta_frame,30,255,cv2.THRESH_BINARY)[1]
+    threshold = cv2.dilate(threshold,None,0)
+    #for not including small objects we have to do contouring
+    contours,heirarchy = cv2.findContours(threshold,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+    for x in contours:
+        if cv2.contourArea(x) < 1000:
+            continue
+        status = 1    
+        (x,y,w,h) = cv2.boundingRect(x)
+        cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),3)
+    status_list.append(status)
+    status_list = status_list[-2:]
+    if status_list[-1]==1 and status_list[-2]==0:
+        times.append(pd.datetime.now())
+    if status_list[-1]==0 and status_list[-2]==1:
+        times.append(pd.datetime.now())
+    cv2.imshow('Frame',frame)
+    cv2.imshow('delta_frame',delta_frame)
+    cv2.imshow('threshold',threshold)
+    cv2.imshow('gray',gray)
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        break
+video.release()
+cv2.destroyAllWindows()
+kf = pd.DataFrame(columns=['Start','End'])
+for i in range(0,len(times)-1,2):
+    kf = kf.append({'Start':times[i],'End':times[i+1]},ignore_index=True)
